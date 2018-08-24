@@ -1,0 +1,6 @@
+D:\protein\ManagedCKMeans\ManagedCKMeans\bin\Debug\Properties\AssemblyInfo.cs
+D:\protein\ManagedCKMeans\ManagedCKMeans\bin\Debug\ManagedCKMeans.dll
+D:\protein\ManagedCKMeans\ManagedCKMeans\bin\Debug\ManagedCKMeans.pdb
+D:\protein\ManagedCKMeans\ManagedCKMeans\obj\Debug\ManagedCKMeans.csprojResolveAssemblyReference.cache
+D:\protein\ManagedCKMeans\ManagedCKMeans\obj\Debug\ManagedCKMeans.dll
+D:\protein\ManagedCKMeans\ManagedCKMeans\obj\Debug\ManagedCKMeans.pdb

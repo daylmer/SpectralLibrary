@@ -1,0 +1,69 @@
+﻿  weighted_select_levels.cpp
+d:\protein\managedckmeans\unmanagedckmeans\weighted_select_levels.cpp(203): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_select_levels.cpp(204): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_select_levels.cpp(221): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_select_levels.cpp(228): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_select_levels.cpp(89): warning C4101: 'estimatesplit': unreferenced local variable
+d:\program files (x86)\microsoft visual studio 14.0\vc\include\numeric(20): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+  d:\program files (x86)\microsoft visual studio 14.0\vc\include\numeric(30): note: see reference to function template instantiation '_Ty std::_Accumulate_unchecked<double*,_Ty,_Fn2>(_InIt,_InIt,_Ty,_Fn2 &)' being compiled
+          with
+          [
+              _Ty=int,
+              _Fn2=std::plus<double>,
+              _InIt=double *
+          ]
+  d:\protein\managedckmeans\unmanagedckmeans\weighted_select_levels.cpp(119): note: see reference to function template instantiation '_Ty std::accumulate<std::_Vector_iterator<std::_Vector_val<std::_Simple_types<double>>>,int,std::plus<double>>(_InIt,_InIt,_Ty,_Fn2)' being compiled
+          with
+          [
+              _Ty=int,
+              _InIt=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<double>>>,
+              _Fn2=std::plus<double>
+          ]
+  weighted_opt_uni_kmeans.cpp
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(33): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(33): warning C4267: 'initializing': conversion from 'size_t' to 'const int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(34): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(34): warning C4267: 'initializing': conversion from 'size_t' to 'const int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(136): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(138): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(142): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(198): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(206): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(52): warning C4101: 'estimatesplit': unreferenced local variable
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(250): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(269): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\weighted_opt_uni_kmeans.cpp(288): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  UnmanagedCKMeans.cpp
+d:\protein\managedckmeans\unmanagedckmeans\unmanagedckmeans.cpp(17): warning C4273: 'ckmeans': inconsistent dll linkage
+  d:\protein\managedckmeans\unmanagedckmeans\unmanagedckmeans.h(14): note: see previous definition of 'ckmeans'
+  select_levels.cpp
+d:\protein\managedckmeans\unmanagedckmeans\select_levels.cpp(185): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\select_levels.cpp(186): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\select_levels.cpp(203): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\select_levels.cpp(210): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\select_levels.cpp(74): warning C4101: 'estimatesplit': unreferenced local variable
+  Ckmeans.1d.dp.cpp
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(103): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(103): warning C4267: 'initializing': conversion from 'size_t' to 'const int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(186): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(186): warning C4267: 'initializing': conversion from 'size_t' to 'const int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(187): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(187): warning C4267: 'initializing': conversion from 'size_t' to 'const int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(251): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(262): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(265): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(207): warning C4101: 'estimatesplit': unreferenced local variable
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(368): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(384): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(402): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(479): warning C4267: 'argument': conversion from 'size_t' to 'unsigned long', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(486): warning C4267: 'argument': conversion from 'size_t' to 'unsigned long', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(510): warning C4267: 'argument': conversion from 'size_t' to 'unsigned long', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(530): warning C4267: 'argument': conversion from 'size_t' to 'unsigned long', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(533): warning C4267: 'argument': conversion from 'size_t' to 'unsigned long', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(593): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\protein\managedckmeans\unmanagedckmeans\ckmeans.1d.dp.cpp(598): warning C4267: 'return': conversion from 'size_t' to 'unsigned long', possible loss of data
+  Generating Code...
+     Creating library D:\protein\ManagedCKMeans\x64\Debug\UnmanagedCKMeans.lib and object D:\protein\ManagedCKMeans\x64\Debug\UnmanagedCKMeans.exp
+  UnmanagedCKMeans.vcxproj -> D:\protein\ManagedCKMeans\x64\Debug\UnmanagedCKMeans.dll
+  UnmanagedCKMeans.vcxproj -> D:\protein\ManagedCKMeans\x64\Debug\UnmanagedCKMeans.pdb (Full PDB)

@@ -1,0 +1,9 @@
+D:\protein\ManagedCKMeans\console\bin\x64\Debug\console.exe.config
+D:\protein\ManagedCKMeans\console\bin\x64\Debug\Properties\AssemblyInfo.cs
+D:\protein\ManagedCKMeans\console\bin\x64\Debug\console.exe
+D:\protein\ManagedCKMeans\console\bin\x64\Debug\console.pdb
+D:\protein\ManagedCKMeans\console\bin\x64\Debug\ManagedCKMeans.dll
+D:\protein\ManagedCKMeans\console\bin\x64\Debug\ManagedCKMeans.pdb
+D:\protein\ManagedCKMeans\console\obj\x64\Debug\console.csprojResolveAssemblyReference.cache
+D:\protein\ManagedCKMeans\console\obj\x64\Debug\console.exe
+D:\protein\ManagedCKMeans\console\obj\x64\Debug\console.pdb

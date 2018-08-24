@@ -1,0 +1,38 @@
+﻿  Ckmeans.1d.dp.cpp
+Ckmeans.1d.dp.cpp(309): warning C4018: '<': signed/unsigned mismatch
+Ckmeans.1d.dp.cpp(316): warning C4018: '<': signed/unsigned mismatch
+Ckmeans.1d.dp.cpp(326): warning C4018: '<': signed/unsigned mismatch
+Ckmeans.1d.dp.cpp(384): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+  select_levels.cpp
+  UnmanagedCKMeans.cpp
+UnmanagedCKMeans.cpp(13): warning C4273: 'GetThing': inconsistent dll linkage
+  d:\protein\managedckmeans\unmanagedckmeans\UnmanagedCKMeans.h(10): note: see previous definition of 'GetThing'
+UnmanagedCKMeans.cpp(18): warning C4273: 'GetOtherThing': inconsistent dll linkage
+  d:\protein\managedckmeans\unmanagedckmeans\UnmanagedCKMeans.h(11): note: see previous definition of 'GetOtherThing'
+UnmanagedCKMeans.cpp(31): warning C4273: 'ckmeans': inconsistent dll linkage
+  d:\protein\managedckmeans\unmanagedckmeans\UnmanagedCKMeans.h(15): note: see previous definition of 'ckmeans'
+  weighted_opt_uni_kmeans.cpp
+weighted_opt_uni_kmeans.cpp(74): warning C4018: '<': signed/unsigned mismatch
+weighted_opt_uni_kmeans.cpp(80): warning C4018: '>=': signed/unsigned mismatch
+weighted_opt_uni_kmeans.cpp(187): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+  weighted_select_levels.cpp
+D:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include\numeric(20): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+  D:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\include\numeric(30): note: see reference to function template instantiation '_Ty std::_Accumulate_unchecked<double*,_Ty,_Fn2>(_InIt,_InIt,_Ty,_Fn2 &)' being compiled
+          with
+          [
+              _Ty=int,
+              _Fn2=std::plus<double>,
+              _InIt=double *
+          ]
+  weighted_select_levels.cpp(100): note: see reference to function template instantiation '_Ty std::accumulate<std::_Vector_iterator<std::_Vector_val<std::_Simple_types<double>>>,int,std::plus<double>>(_InIt,_InIt,_Ty,_Fn2)' being compiled
+          with
+          [
+              _Ty=int,
+              _InIt=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<double>>>,
+              _Fn2=std::plus<double>
+          ]
+  Generating Code...
+  .NETFramework,Version=v4.0.AssemblyAttributes.cpp
+     Creating library D:\protein\ManagedCKMeans\Debug\UnmanagedCKMeans.lib and object D:\protein\ManagedCKMeans\Debug\UnmanagedCKMeans.exp
+  UnmanagedCKMeans.vcxproj -> D:\protein\ManagedCKMeans\Debug\UnmanagedCKMeans.dll
+  UnmanagedCKMeans.vcxproj -> D:\protein\ManagedCKMeans\Debug\UnmanagedCKMeans.pdb (Full PDB)
