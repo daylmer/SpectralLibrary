@@ -1,0 +1,34 @@
+Isotopic masses and natural abundances
+https://www.ncsu.edu/chemistry/msf/pdf/IsotopicMass_NaturalAbundance.pdf
+http://www.matrixscience.com/help/aa_help.html
+
+log trend lines
+http://mathworld.wolfram.com/LeastSquaresFittingLogarithmic.html
+https://www.experts-exchange.com/questions/22401637/Calculate-logarithmic-trendline-equation.html
+
+kimball
+http://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/fact-table-null/
+http://www.kimballgroup.com/2003/02/design-tip-43-dealing-with-nulls-in-the-dimensional-model/
+
+multiple jobs
+http://stackoverflow.com/questions/15580105/powershell-run-multiple-jobs-in-parralel-and-view-streaming-results-from-backgr
+
+Environment.ProcessorCount
+This gives the number of logical processors, not the number of cores
+
+
+powershell console cursor
+http://powershell-tips.blogspot.co.uk/2011/05/moving-cursor-to-specific-location.html
+
+
+$sb = {
+     "Starting Job on $($args[0])"
+     #Do something
+     "$($args[0]) => Do something completed successfully"
+     "$($args[0]) => Now for something completely different"
+     "Ending Job on $($args[0])"
+}
+Foreach($computer in $computers){
+    Start-Job -ScriptBlock $sb -Args $computer | Out-Null
+    Get-Job | Receive-Job
+}

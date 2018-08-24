@@ -1,0 +1,78 @@
+Label-free quantification is complicated by run-to-run LC peptide separation variability. Although LC 
+reproducibility is now far more robust than in the past, peptide elution times can vary by seconds to 
+minutes, with peptide-to-peptide variability not necessarily being a linear relationship. Retention time 
+alignment is commonly performed across a dataset to improve the reliability and reproducibility of 
+label-free results. A number of different algorithms have been developed to align peptide retention 
+times across analytical runs. Two such algorithms have been developed with HDMSE and MSE as 
+their main applications. The first, developed by the Tenzer lab, implements retention time alignment 
+within the IsoQuant software and aims to improve the reproducibility of quantitative results derived 
+from MSE derived data [46]. Here a Dynamic-Time-Warping algorithm aligns all runs to a reference 
+run that is chosen based upon the highest number of detected signals. The second algorithm is built 
+into the Synapter program developed by the Lilley lab which facilitates the merging of MSE and 
+HDMSE quantitative data [47]. Synapter performs alignment by LOESS fitting, to model retention time 
+deviations, when comparing two samples. Retention time deviations are then corrected according to 
+this model in a similar approach to those used for peptide intensity normalisation. Progenesis uses a 
+third method to improve peptide LC time alignment. A 2D representation of each MS run is created by 
+plotting m/z against RT. Alignment is based upon the placement of alignment vectors which act as 
+landmarks that connect a peptide ion location from the two runs being aligned. By placing a number of 
+
+
+retention time scaling using DTW prior to progenisis
+
+
+what are the units of measure for drift time?
+
+
+MSc Bioinformatics with Systems Biology 
+Viva Schedule 2015/16
+Tuesday 13th September 2016
+Location: TBC
+
+AYLMER, David
+11.45
+
+
+
+
+
+
+SESSION: Data Mining in SQL Server Analysis Services (Brian Knight)
+https://www.youtube.com/watch?v=m_DzhW-2pWI
+
+frequency of sequence to affect weights
+
+figures
+
+repeatable for other shite
+
+barcharts of intensity minimum maximum
+
+data mining models lift chart for sequence prediction
+using drift time, not using drift time
+
+Flat Schema, OLTP schema, OLAP schema
+
+
+clustering
+
+ckmeans
+Algorithm omega score, and timing estimate prediction for dynamic programming of 
+
+
+data mining model prediction
+
+
+
+
+MapViewOfFile?
+
+
+preallocate database and logsizes
+
+remove constraints, remove primary keys.. heap index?
+
+ExecuteNoQuery
+
+
+
+batch commits, commit every 1000 inserts, or every second

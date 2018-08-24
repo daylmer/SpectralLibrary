@@ -1,23 +1,91 @@
+
+-- Purpose: To evaluate the specifity that each measure contributes
+
+-- Use protein database
 use protein;
 GO
-SET XACT_ABORT ON;
-SET NOCOUNT ON;
-SET IMPLICIT_TRANSACTIONS OFF;
-go  
-WHILE (@@TranCount > 0) COMMIT TRANSACTION;  
-go
 
+-- When SET XACT_ABORT is ON, if a Transact-SQL statement raises a run-time error, the entire transaction is terminated and rolled back.
+-- https://docs.microsoft.com/en-us/sql/t-sql/statements/set-xact-abort-transact-sql
+SET XACT_ABORT ON;
+
+-- Stops the message that shows the count of the number of rows affected by a Transact-SQL statement or stored procedure from being returned as part of the result set.
+-- When SET NOCOUNT is ON, the count is not returned. When SET NOCOUNT is OFF, the count is returned. The @@ROWCOUNT function is updated even when SET NOCOUNT is ON.
+-- https://docs.microsoft.com/en-us/sql/t-sql/statements/set-nocount-transact-sql
+SET NOCOUNT ON;
+
+-- Sets the BEGIN TRANSACTION mode to implicit, for the connection.
+-- When OFF, each of the preceding T-SQL statements is bounded by an unseen BEGIN TRANSACTION and an unseen COMMIT TRANSACTION statement.
+-- When OFF, we say the transaction mode is autocommit. If your T-SQL code visibly issues a BEGIN TRANSACTION, we say the transaction mode is explicit.
+-- https://docs.microsoft.com/en-us/sql/t-sql/statements/set-implicit-transactions-transact-sql
+SET IMPLICIT_TRANSACTIONS OFF;
+GO
+
+-- Clean up transactions
+WHILE (@@TranCount > 0) COMMIT TRANSACTION;  
+GO
+
+-- Declare errormessage variable
 DECLARE @errormessage varchar(1024);
+
+-- Output to console
+-- Typically, this script uses RAISERROR in preference to PRINT for console output. 
+-- This is because PRINT typically uses an output buffer and is not directly printed to output.
+-- Raiserror in conjunction with: "WITH NOWAIT" flushes the output buffer immediately to the console output
+-- A raiserror call with a severity of 0 is outputed in the same style as the print function
 RAISERROR ('Starting Script. Purpose: To evaluate the specifity that each measure contributes', 0, 1) WITH NOWAIT;
 
+-- Variables to control program flow 
+
+-- recalculatemeasuretables
+-- if recalculatemeasuretables is set to 1, The following tables will be droped, re-created and re-populated:
+-- s_precursorgroup				-- all fragments, grouped by peptide sequence, aggregating min, max and avg for: mz, rettime, mobility, intensity, deltappm, fwhm, mhp
+-- s_productgroup				-- all fragments, grouped by fragment sequence, aggregating min, max and avg for: mz, rettime, mobility, intensity, deltappm, fwhm, mhp
+-- c_precursorproductgroup		-- all fragments, grouped by peptide sequence THEN by fragment sequence, aggregating min, max and avg for: mz, rettime, mobility, intensity, deltappm, fwhm, mhp
+-- s_peptideweightedaverages	-- all fragments, grouped by peptide sequence and the relevant measure to calculate a weighted average for each measure
+-- s_fragmentweightedaverages	-- all fragments, grouped by fragment sequence and the relevant measure to calculate a weighted average for each measure
+-- c_peptideweightedaverages    -- all fragments, grouped by peptide sequence THEN by fragment sequence and the relevant measure to calculate a weighted average for each precursor measure
+-- c_fragmentweightedaverages   -- all fragments, grouped by peptide sequence THEN by fragment sequence and the relevant measure to calculate a weighted average for each product measure
+-- All of the above tables are later used to populate s_precursor_range
 DECLARE @recalculatemeasuretables bit; SET @recalculatemeasuretables = 0;
+
+-- recalculatecontributiontables
+-- if recalculatecontributiontables is set to 1, The following tables will be droped, re-created and re-populated:
+-- s_precursor_range			-- For all peptides, and all measures (mz, rettime, mobility, intensity, deltappm, fwhm, mhp), record the total number of peptides that where the measure falls into the min and max range (total) and of those, the ones that match on the peptide sequence (match). The ratio of match to total as well as the match number gives and idea of how well the measure contributes to identification/
+-- e.g. s_precursor_range_precursormz_r measures the total number of fragments where the peptide mz is between the min and max values and the total number of fragments where the precursor mz is between the min and max values and the peptide sequence matches.
+
+-- s_precursor_avgdelta			-- For all peptides, and all measures (mz, rettime, mobility, intensity, deltappm, fwhm, mhp), record the total number of peptides that where the measure is the closest the average value nto the min and max range (total) and of those, the ones that match on the peptide sequence (match). The ratio of match to total as well as the match number gives and idea of how well the measure contributes to identification/
+-- s_precursor_wavgdelta
+-- s_product_range
+-- s_product_avgdelta
+-- s_product_wavgdelta
+-- Each of these tables is populated with s_precursor_range_precursormobility_r
+
+
+
+
+
+-- s_precursor_range_precursorrettime_r
+-- s_precursor_range_precursormz_r
+-- s_precursor_range_precursorfwhm_r
+-- s_precursor_range_precursorintensity_r
+-- s_precursor_range_precursormhp_r
+-- s_precursor_range_precursordeltappm_r
+-- s_precursor_range_precursormobility_r
+
+
 DECLARE @recalculatecontributiontables bit; SET @recalculatecontributiontables = 1;
+
+
 DECLARE @resetmeasurecontributiontable bit; SET @resetmeasurecontributiontable = 0;
 DECLARE @updatemeasures bit; SET @updatemeasures = 0;
 DECLARE @updatecontributions bit; SET @updatecontributions = 0;
 DECLARE @calculatecontribution bit; SET @calculatecontribution = 0;
 DECLARE @reportstats bit; SET @reportstats = 0;
 
+
+
+-- Declare timestampstart to record timing data for proceses 
 DECLARE @timestampstart datetime;
 SET @timestampstart = getdate();
 
@@ -55,10 +123,14 @@ END ELSE BEGIN
 		s_avg_precursormhp numeric(18,6),
 		s_max_precursormhp numeric(18,6)
 	)
+
+	--Commented out for review and removal
 	--DROP index s_precursorgroup_s_min_precursormz_idx ON s_precursorgroup
 	--CREATE NONCLUSTERED INDEX s_precursorgroup_s_min_precursormz_idx ON s_precursorgroup (s_min_precursormz, peptidesequence);
 	--CREATE NONCLUSTERED INDEX fragmentfile_s_min_precursormz_idx ON s_precursorgroup (s_min_precursormz ASC);
-
+	
+	-- All fragments, grouped by peptide sequence, aggregating min, max and avg for: mz, rettime, mobility, intensity, deltappm, fwhm, mhp
+	-- This table is used to populate s_precursor_range
 	INSERT INTO s_precursorgroup
 		SELECT
 			ff.peptidesequence,
@@ -948,8 +1020,9 @@ END ELSE BEGIN
 	DECLARE @c_wavg_productmhptable TABLE (
 		peptidesequence varchar(128) NOT NULL UNIQUE CLUSTERED (peptidesequence, fragmentsequence),
 		fragmentsequence varchar(128) NOT NULL,
+
 		value numeric(18,6)
-	)
+                                                                              	)
 	INSERT INTO @c_wavg_productmhptable
 		SELECT peptidesequence, fragmentsequence, SUM(wt.data * wt.weight) / SUM(wt.weight) value
 		FROM (
@@ -1007,7 +1080,23 @@ IF (@recalculatecontributiontables = 0) BEGIN
 	RAISERROR ('Using existing contribution tables', 0, 1) WITH NOWAIT;
 END ELSE BEGIN
 	RAISERROR ('Recalculating contribution tables', 0, 1) WITH NOWAIT;	
+
+
+	-- paste the shite here:
+
+
+
+
+
+
+-- Temporarally commented out
+-- Good stuff here that populates different string constants into the measure column for calcs
+
 /*
+
+	select count(*) from s_precursor_range
+	-- 837690
+
 	IF OBJECT_ID (N's_precursor_range', N'U') IS NOT NULL BEGIN
 		DROP TABLE s_precursor_range
 	END
@@ -1144,262 +1233,14 @@ END ELSE BEGIN
 
 	SET @errormessage = 's_precursor_range table population for mhp ' + format(getdate() - @timestampstart, 'H:m:ss');
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-	*/
-	select top 1 * from s_precursor_avgdelta
-	IF OBJECT_ID (N's_precursor_avgdelta', N'U') IS NOT NULL BEGIN
-		DROP TABLE s_precursor_avgdelta
-	END
 
-	--DROP INDEX s_precursor_avgdelta_measure_peptidesequence_idx ON s_precursor_avgdelta;
+	-- Drop procedure if exists
+	IF EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND OBJECT_ID = OBJECT_ID('dbo.midpoint'))
+		DROP PROCEDURE midpoint
+	GO
 
-	CREATE TABLE s_precursor_avgdelta (
-		measure varchar(64),
-		peptidesequence varchar(128),
-		match bigint NOT NULL,
-		total bigint NOT NULL
-	)
-
-	INSERT INTO s_precursor_avgdelta
-		SELECT 's_precursor_avgdeltamz_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursormz
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursormz - spg.s_avg_precursormz)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_avgdelta table population for mz ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_avgdelta
-		select 's_precursor_avgdeltarettime_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursorrettime
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursorrettime - spg.s_avg_precursorrettime)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_avgdelta table population for rettime ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_avgdelta
-		select 's_precursor_avgdelta_mobility_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursormobility
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursormobility - spg.s_avg_precursormobility)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_avgdelta table population for mobility ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_avgdelta
-		select 's_precursor_avgdelta_intensity_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursorintensity
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursorintensity - spg.s_avg_precursorintensity)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_avgdelta table population for intensity ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_avgdelta
-		select 's_precursor_avgdelta_deltappm_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursordeltappm
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursordeltappm - spg.s_avg_precursordeltappm)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_avgdelta table population for deltappm ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_avgdelta
-		select 's_precursor_avgdelta_fwhm_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursorfwhm
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursorfwhm - spg.s_avg_precursorfwhm)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_avgdelta table population for fwhm ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_avgdelta
-		select 's_precursor_avgdelta_mhp_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursormhp
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursormhp - spg.s_avg_precursormhp)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_avgdelta table population for mhp ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	CREATE UNIQUE CLUSTERED INDEX s_precursor_avgdelta_measure_peptidesequence_idx ON s_precursor_avgdelta (measure, peptidesequence);
-
-	IF OBJECT_ID (N's_precursor_wavgdelta', N'U') IS NOT NULL BEGIN
-		DROP TABLE s_precursor_wavgdelta
-	END
-
-	--DROP INDEX s_precursor_wavgdelta_measure_peptidesequence_idx ON s_precursor_wavgdelta;
-
-	CREATE TABLE s_precursor_wavgdelta (
-		measure varchar(64),
-		peptidesequence varchar(128),
-		match bigint NOT NULL,
-		total bigint NOT NULL
-	)
-
-	INSERT INTO s_precursor_wavgdelta
-		SELECT 's_precursor_wavgdeltamz_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursormz
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursormz - spg.s_avg_precursormz)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_wavgdelta table population for mz ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_wavgdelta
-		select 's_precursor_wavgdeltarettime_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursorrettime
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursorrettime - spg.s_avg_precursorrettime)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_wavgdelta table population for rettime ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_wavgdelta
-		select 's_precursor_wavgdelta_mobility_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursormobility
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursormobility - spg.s_avg_precursormobility)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_wavgdelta table population for mobility ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_wavgdelta
-		select 's_precursor_wavgdelta_intensity_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursorintensity
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursorintensity - spg.s_avg_precursorintensity)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_wavgdelta table population for intensity ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_wavgdelta
-		select 's_precursor_wavgdelta_deltappm_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursordeltappm
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursordeltappm - spg.s_avg_precursordeltappm)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_wavgdelta table population for deltappm ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_wavgdelta
-		select 's_precursor_wavgdelta_fwhm_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursorfwhm
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursorfwhm - spg.s_avg_precursorfwhm)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_wavgdelta table population for fwhm ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	INSERT INTO s_precursor_wavgdelta
-		select 's_precursor_wavgdelta_mhp_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
-		FROM s_precursorgroup spg
-		CROSS APPLY
-		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.peptidefrequency) ff1.precursormhp
-				FROM fragmentfile ff1 
-				WHERE ff1.peptidesequence = spg.peptidesequence
-				ORDER BY ABS(ff1.precursormhp - spg.s_avg_precursormhp)
-			) total
-		) matchcount
-
-	SET @errormessage = 's_precursor_wavgdelta table population for mhp ' + format(getdate() - @timestampstart, 'H:m:ss');
-	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
-	CREATE UNIQUE CLUSTERED INDEX s_precursor_wavgdelta_measure_peptidesequence_idx ON s_precursor_wavgdelta (measure, peptidesequence);
-
+	select count(*) from s_product_range
+	-- 837690
 
 	IF OBJECT_ID (N's_product_range', N'U') IS NOT NULL BEGIN
 		DROP TABLE s_product_range
@@ -1428,7 +1269,7 @@ END ELSE BEGIN
 			FROM fragmentfile ff2 
 			WHERE ff2.productmz BETWEEN spg.s_min_productmz and spg.s_max_productmz
 		) total
-		SET @errormessage = 's_product_range table population for mz ' + format(getdate() - @timestampstart, 'H:m:ss');
+	SET @errormessage = 's_product_range table population for mz ' + format(getdate() - @timestampstart, 'H:m:ss');
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_range
@@ -1503,6 +1344,9 @@ END ELSE BEGIN
 	SET @errormessage = 's_product_range table population for deltappm ' + format(getdate() - @timestampstart, 'H:m:ss');
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
+	select count(*) from s_product_range
+	-- 3064570
+
 	INSERT INTO s_product_range
 		SELECT 's_product_range_productfwhm_r', spg.fragmentsequence, match.value, total.value
 		FROM s_productgroup spg
@@ -1521,6 +1365,10 @@ END ELSE BEGIN
 	SET @errormessage = 's_product_range table population for fwhm ' + format(getdate() - @timestampstart, 'H:m:ss');
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
+	select count(*) from s_product_range
+	-- 3677484
+
+
 	INSERT INTO s_product_range
 		SELECT 's_product_range_productmhp_r', spg.fragmentsequence, match.value, total.value
 		FROM s_productgroup spg
@@ -1532,23 +1380,791 @@ END ELSE BEGIN
 		CROSS APPLY
 		(
 			SELECT spg.fragmentsequence, count(*) value
-			FROM fragmentfile ff2 
+			FROM fragmentfile ff2  
 			WHERE ff2.productmhp BETWEEN spg.s_min_productmhp and spg.s_max_productmhp
 		) total
 
 	SET @errormessage = 's_product_range table population for mhp ' + format(getdate() - @timestampstart, 'H:m:ss');
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	select count(*) from s_product_range
+	-- 4290398
 	
 	CREATE UNIQUE CLUSTERED INDEX s_product_range_productmz_measure_fragmentsequence_idx ON s_product_range (measure, fragmentsequence);
-	
-	--
 
+
+	*/
+
+	-- Table variable to store the results of a call tot he midpoint procedure. Used to populate s_precursorgroup_bounds/s_peptideweightedaverages_bounds
+	DECLARE @midpoint TABLE (
+		-- Add the column definitions for the TABLE variable here
+		id bigint PRIMARY KEY,
+		sequence varchar(128) UNIQUE NONCLUSTERED,
+		value numeric(18,6),
+		value_min numeric(18,6) null,
+		value_max numeric(18,6) null
+	)
+
+
+	/*
+
+	DROP PROCEDURE midpoint
+
+	-- Create a procedure that finds the midpoints between centre points to make bounding in a linear space easier
+	CREATE PROCEDURE midpoint(
+		@SequenceName nvarchar(128),
+		@ColumnName nvarchar(128),
+		@TableName nvarchar(128)
+	) AS BEGIN
+
+		CREATE TABLE #midpoint (
+			-- Add the column definitions for the TABLE variable here
+			id bigint identity PRIMARY KEY,
+			sequence varchar(128) UNIQUE NONCLUSTERED,
+			value numeric(18,6),
+			value_min numeric(18,6) null,
+			value_max numeric(18,6) null
+		)
+
+		-- top 5 
+		DECLARE @Query nvarchar(1024)
+		SET @Query = 
+		N' INSERT INTO #midpoint
+		SELECT ' + @SequenceName + N', ' + @ColumnName + N', null, null
+		FROM ' + @TableName + N' 
+		ORDER BY ' + @ColumnName + N' ASC'
+		--EXEC (@Query);
+
+		EXECUTE sp_executesql @Query
+
+		DECLARE @peptidesequence varchar(128); SET @peptidesequence = '';
+		DECLARE @value numeric(18,6);
+		DECLARE @value_min numeric(18,6); SET @value_min = 0.0;
+		DECLARE @value_max numeric(18,6); SET @value_max = 0.0;
+		DECLARE @previous_value numeric(18,6); SET @previous_value = 0.0;
+
+		DECLARE @index bigint SET @index = (select min(id) from #midpoint);
+		DECLARE @maxid bigint; SET @maxid = (select max(id) from #midpoint);
+
+		WHILE (@index < @maxid + 2) BEGIN
+
+			SELECT @value = value
+			FROM #midpoint
+			WHERE id = @index
+	
+			IF @value is null SET @value = @previous_value
+			SET @value_min = @value + (@previous_value - @value) / 2
+
+			UPDATE #midpoint
+			SET		value_min = @value_min
+			WHERE id = @index
+
+			UPDATE #midpoint
+			SET		value_max = @value_min
+			WHERE id = @index - 1
+
+			SET @previous_value = @value;
+
+			SET @index = @index + 1;
+		END
+
+		-- After processing, update the first minimum bounds to zero.
+		UPDATE #midpoint	SET value_min = 0 WHERE id = 1
+
+		-- Return contents of temporary table
+		SELECT * FROM #midpoint
+	END
+	GO
+
+
+	-- Create permanent table to create bounds binning for each peptide and measure. Precursor averages
+	IF OBJECT_ID (N's_precursorgroup_bounds', N'U') IS NOT NULL BEGIN
+		DROP TABLE s_precursorgroup_bounds
+	END
+
+	-- Table to store mid bounds between average centre points in order to easily determine which values are closest (euclidian distance) to each average centre point.
+	CREATE TABLE s_precursorgroup_bounds (
+		peptidesequence varchar(128) NOT NULL UNIQUE NONCLUSTERED(peptidesequence),
+		s_avg_precursormz_minbound numeric(18,6),
+		s_avg_precursormz_maxbound numeric(18,6),
+		s_avg_precursorrettime_minbound numeric(18,6),
+		s_avg_precursorrettime_maxbound numeric(18,6),
+		s_avg_precursormobility_minbound numeric(18,6),
+		s_avg_precursormobility_maxbound numeric(18,6),
+		s_avg_precursorintensity_minbound numeric(18,6),
+		s_avg_precursorintensity_maxbound numeric(18,6),
+		s_avg_precursordeltappm_minbound numeric(18,6),
+		s_avg_precursordeltappm_maxbound numeric(18,6),
+		s_avg_precursorfwhm_minbound numeric(18,6),
+		s_avg_precursorfwhm_maxbound numeric(18,6),
+		s_avg_precursormhp_minbound numeric(18,6),
+		s_avg_precursormhp_maxbound numeric(18,6)
+	)
+
+	-- Populate above table with known sequences
+	INSERT INTO s_precursorgroup_bounds (peptidesequence)
+		SELECT peptidesequence FROM s_precursorgroup
+
+	-- Create permanent table to create bounds binning for each peptide and measure. Precursor weighted averages
+	IF OBJECT_ID (N's_peptideweightedaverages_bounds', N'U') IS NOT NULL BEGIN
+		DROP TABLE s_peptideweightedaverages_bounds
+	END
+
+	-- Table to store mid bounds between average centre points in order to easily determine which values are closest (euclidian distance) to each average centre point.
+	CREATE TABLE s_peptideweightedaverages_bounds (
+		peptidesequence varchar(128) UNIQUE CLUSTERED,
+		s_wavg_precursormz_minbound numeric(18,6),
+		s_wavg_precursormz_maxbound numeric(18,6),
+		s_wavg_precursorrettime_minbound numeric(18,6),
+		s_wavg_precursorrettime_maxbound numeric(18,6),
+		s_wavg_precursormobility_minbound numeric(18,6),
+		s_wavg_precursormobility_maxbound numeric(18,6),
+		s_wavg_precursorintensity_minbound numeric(18,6),
+		s_wavg_precursorintensity_maxbound numeric(18,6),
+		s_wavg_precursordeltappm_minbound numeric(18,6),
+		s_wavg_precursordeltappm_maxbound numeric(18,6),
+		s_wavg_precursorfwhm_minbound numeric(18,6),
+		s_wavg_precursorfwhm_maxbound numeric(18,6),
+		s_wavg_precursormhp_minbound  numeric(18,6),
+		s_wavg_precursormhp_maxbound  numeric(18,6)
+	)
+
+	INSERT INTO s_peptideweightedaverages_bounds (peptidesequence)
+		SELECT peptidesequence FROM s_peptideweightedaverages
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_avg_precursormz', 's_precursorgroup'
+	UPDATE s_precursorgroup_bounds
+	SET s_avg_precursormz_minbound = m.value_min,
+		s_avg_precursormz_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_avg_precursorrettime', 's_precursorgroup'
+	UPDATE s_precursorgroup_bounds
+	SET s_avg_precursorrettime_minbound = m.value_min,
+		s_avg_precursorrettime_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_avg_precursormobility', 's_precursorgroup'
+	UPDATE s_precursorgroup_bounds
+	SET s_avg_precursormobility_minbound = m.value_min,
+		s_avg_precursormobility_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_avg_precursorintensity', 's_precursorgroup'
+	UPDATE s_precursorgroup_bounds
+	SET s_avg_precursorintensity_minbound = m.value_min,
+		s_avg_precursorintensity_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_avg_precursordeltappm', 's_precursorgroup'
+	UPDATE s_precursorgroup_bounds
+	SET s_avg_precursordeltappm_minbound = m.value_min,
+		s_avg_precursordeltappm_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_avg_precursorfwhm', 's_precursorgroup'
+	UPDATE s_precursorgroup_bounds
+	SET s_avg_precursorfwhm_minbound = m.value_min,
+		s_avg_precursorfwhm_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_avg_precursormhp', 's_precursorgroup'
+	UPDATE s_precursorgroup_bounds
+	SET s_avg_precursormhp_minbound = m.value_min,
+		s_avg_precursormhp_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_wavg_precursormz', 's_peptideweightedaverages'
+	UPDATE s_peptideweightedaverages_bounds
+	SET s_wavg_precursormz_minbound = m.value_min,
+		s_wavg_precursormz_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_wavg_precursorrettime', 's_peptideweightedaverages'
+	UPDATE s_peptideweightedaverages_bounds
+	SET s_wavg_precursorrettime_minbound = m.value_min,
+		s_wavg_precursorrettime_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_wavg_precursormobility', 's_peptideweightedaverages'
+	UPDATE s_peptideweightedaverages_bounds
+	SET s_wavg_precursormobility_minbound = m.value_min,
+		s_wavg_precursormobility_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_wavg_precursorintensity', 's_peptideweightedaverages'
+	UPDATE s_peptideweightedaverages_bounds
+	SET s_wavg_precursorintensity_minbound = m.value_min,
+		s_wavg_precursorintensity_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_wavg_precursordeltappm', 's_peptideweightedaverages'
+	UPDATE s_peptideweightedaverages_bounds
+	SET s_wavg_precursordeltappm_minbound = m.value_min,
+		s_wavg_precursordeltappm_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_wavg_precursorfwhm', 's_peptideweightedaverages'
+	UPDATE s_peptideweightedaverages_bounds
+	SET s_wavg_precursorfwhm_minbound = m.value_min,
+		s_wavg_precursorfwhm_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'peptidesequence', 's_wavg_precursormhp', 's_peptideweightedaverages'
+	UPDATE s_peptideweightedaverages_bounds
+	SET s_wavg_precursormhp_minbound = m.value_min,
+		s_wavg_precursormhp_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE peptidesequence = m.sequence
+	DELETE @midpoint
+
+
+	*/
+
+		-- Do all of the above again for precursor-product combinations
+
+/*
+
+	-- s_precursor_avgdelta
+	-- commented because populated.
+
+
+	IF OBJECT_ID (N's_precursor_avgdelta', N'U') IS NOT NULL BEGIN
+		DROP TABLE s_precursor_avgdelta
+	END
+
+	--DROP INDEX s_precursor_avgdelta_measure_peptidesequence_idx ON s_precursor_avgdelta;
+
+	CREATE TABLE s_precursor_avgdelta (
+		measure varchar(64),
+		peptidesequence varchar(128),
+		match bigint NOT NULL,
+		total bigint NOT NULL
+	)
+	DELETE FROM s_precursor_avgdelta
+
+	INSERT INTO s_precursor_avgdelta
+		SELECT 's_precursor_avgdeltamz_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_precursorgroup_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursormz
+				FROM fragmentfile ff1 
+				WHERE ff1.precursormz BETWEEN b.s_avg_precursormz_minbound AND b.s_avg_precursormz_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	--  time 01:22
+	SET @errormessage = 's_precursor_avgdelta table population for mz ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+	
+	INSERT INTO s_precursor_avgdelta
+		SELECT 's_precursor_avgdelta_rettime_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_precursorgroup_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursorrettime
+				FROM fragmentfile ff1 
+				WHERE ff1.precursorrettime BETWEEN b.s_avg_precursorrettime_minbound AND b.s_avg_precursorrettime_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_avgdelta table population for rettime ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_avgdelta
+		SELECT 's_precursor_avgdelta_mobility_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_precursorgroup_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursormobility
+				FROM fragmentfile ff1 
+				WHERE ff1.precursormobility BETWEEN b.s_avg_precursormobility_minbound AND b.s_avg_precursormobility_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_avgdelta table population for mobility ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_avgdelta
+		SELECT 's_precursor_avgdelta_intensity_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_precursorgroup_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursorintensity
+				FROM fragmentfile ff1 
+				WHERE ff1.precursorintensity BETWEEN b.s_avg_precursorintensity_minbound AND b.s_avg_precursorintensity_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_avgdelta table population for intensity ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_avgdelta
+		SELECT 's_precursor_avgdelta_deltappm_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_precursorgroup_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursordeltappm
+				FROM fragmentfile ff1 
+				WHERE ff1.precursordeltappm BETWEEN b.s_avg_precursordeltappm_minbound AND b.s_avg_precursordeltappm_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_avgdelta table population for deltappm ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_avgdelta
+		SELECT 's_precursor_avgdelta_fwhm_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_precursorgroup_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursorfwhm
+				FROM fragmentfile ff1 
+				WHERE ff1.precursorfwhm BETWEEN b.s_avg_precursorfwhm_minbound AND b.s_avg_precursorfwhm_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_avgdelta table population for fwhm ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_avgdelta
+		SELECT 's_precursor_avgdelta_mhp_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_precursorgroup_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursormhp
+				FROM fragmentfile ff1 
+				WHERE ff1.precursormhp BETWEEN b.s_avg_precursormhp_minbound AND b.s_avg_precursormhp_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_avgdelta table population for mhp ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	CREATE UNIQUE CLUSTERED INDEX s_precursor_avgdelta_measure_peptidesequence_idx ON s_precursor_avgdelta (measure, peptidesequence);
+*/
+
+/*
+	-- s_precursor_wavgdelta
+	-- commented because populated.
+
+	IF OBJECT_ID (N's_precursor_wavgdelta', N'U') IS NOT NULL BEGIN
+		DROP TABLE s_precursor_wavgdelta
+	END
+
+	--DROP INDEX s_precursor_wavgdelta_measure_peptidesequence_idx ON s_precursor_wavgdelta;
+
+	CREATE TABLE s_precursor_wavgdelta (
+		measure varchar(64),
+		peptidesequence varchar(128),
+		match bigint NOT NULL,
+		total bigint NOT NULL
+	)
+
+	INSERT INTO s_precursor_wavgdelta
+		SELECT 's_precursor_wavgdelta_mz_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_peptideweightedaverages_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursormz
+				FROM fragmentfile ff1 
+				WHERE ff1.precursormz BETWEEN b.s_wavg_precursormz_minbound AND b.s_wavg_precursormz_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_wavgdelta table population for mz ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_wavgdelta
+		SELECT 's_precursor_wavgdelta_rettime_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_peptideweightedaverages_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursorrettime
+				FROM fragmentfile ff1 
+				WHERE ff1.precursorrettime BETWEEN b.s_wavg_precursorrettime_minbound AND b.s_wavg_precursorrettime_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_wavgdelta table population for rettime ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_wavgdelta
+		SELECT 's_precursor_wavgdelta_mobility_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_peptideweightedaverages_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursormobility
+				FROM fragmentfile ff1 
+				WHERE ff1.precursormobility BETWEEN b.s_wavg_precursormobility_minbound AND b.s_wavg_precursormobility_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_wavgdelta table population for mobility ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_wavgdelta
+		SELECT 's_precursor_wavgdelta_intensity_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_peptideweightedaverages_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursorintensity
+				FROM fragmentfile ff1 
+				WHERE ff1.precursorintensity BETWEEN b.s_wavg_precursorintensity_minbound AND b.s_wavg_precursorintensity_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_wavgdelta table population for intensity ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_wavgdelta
+		SELECT 's_precursor_wavgdelta_deltappm_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_peptideweightedaverages_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursordeltappm
+				FROM fragmentfile ff1 
+				WHERE ff1.precursordeltappm BETWEEN b.s_wavg_precursordeltappm_minbound AND b.s_wavg_precursordeltappm_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_wavgdelta table population for deltappm ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_wavgdelta
+		SELECT 's_precursor_wavgdelta_fwhm_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_peptideweightedaverages_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursorfwhm
+				FROM fragmentfile ff1 
+				WHERE ff1.precursorfwhm BETWEEN b.s_wavg_precursorfwhm_minbound AND b.s_wavg_precursorfwhm_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_wavgdelta table population for fwhm ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	INSERT INTO s_precursor_wavgdelta
+		SELECT 's_precursor_wavgdelta_mhp_r', spg.peptidesequence, matchcount.value, spg.peptidefrequency
+		FROM s_precursorgroup spg
+		INNER JOIN s_peptideweightedaverages_bounds b on spg.peptidesequence = b.peptidesequence
+		CROSS APPLY
+		(
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.precursormhp
+				FROM fragmentfile ff1 
+				WHERE ff1.precursormhp BETWEEN b.s_wavg_precursormhp_minbound AND b.s_wavg_precursormhp_maxbound
+				AND ff1.peptidesequence = spg.peptidesequence
+			) total
+		) matchcount
+
+	SET @errormessage = 's_precursor_wavgdelta table population for mhp ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	CREATE UNIQUE CLUSTERED INDEX s_precursor_wavgdelta_measure_peptidesequence_idx ON s_precursor_wavgdelta (measure, peptidesequence);
+
+	*/
+
+
+	/*
+	
+	-- Create permanent table to create bounds binning for each fragment and measure. product averages
+	IF OBJECT_ID (N's_productgroup_bounds', N'U') IS NOT NULL BEGIN
+		DROP TABLE s_productgroup_bounds
+	END
+
+	-- Table to store mid bounds between average centre points in order to easily determine which values are closest (euclidian distance) to each average centre point.
+	CREATE TABLE s_productgroup_bounds (
+		fragmentsequence varchar(128) NOT NULL UNIQUE NONCLUSTERED(fragmentsequence),
+		s_avg_productmz_minbound numeric(18,6),
+		s_avg_productmz_maxbound numeric(18,6),
+		s_avg_productrettime_minbound numeric(18,6),
+		s_avg_productrettime_maxbound numeric(18,6),
+		s_avg_productmobility_minbound numeric(18,6),
+		s_avg_productmobility_maxbound numeric(18,6),
+		s_avg_productintensity_minbound numeric(18,6),
+		s_avg_productintensity_maxbound numeric(18,6),
+		s_avg_productdeltappm_minbound numeric(18,6),
+		s_avg_productdeltappm_maxbound numeric(18,6),
+		s_avg_productfwhm_minbound numeric(18,6),
+		s_avg_productfwhm_maxbound numeric(18,6),
+		s_avg_productmhp_minbound numeric(18,6),
+		s_avg_productmhp_maxbound numeric(18,6)
+	)
+
+	-- Populate above table with known sequences
+	INSERT INTO s_productgroup_bounds (fragmentsequence)
+		SELECT fragmentsequence FROM s_productgroup
+
+	-- Create permanent table to create bounds binning for each fragment and measure. product weighted averages
+	IF OBJECT_ID (N's_fragmentweightedaverages_bounds', N'U') IS NOT NULL BEGIN
+		DROP TABLE s_fragmentweightedaverages_bounds
+	END
+
+	-- Table to store mid bounds between average centre points in order to easily determine which values are closest (euclidian distance) to each average centre point.
+	CREATE TABLE s_fragmentweightedaverages_bounds (
+		fragmentsequence varchar(128) UNIQUE CLUSTERED,
+		s_wavg_productmz_minbound numeric(18,6),
+		s_wavg_productmz_maxbound numeric(18,6),
+		s_wavg_productrettime_minbound numeric(18,6),
+		s_wavg_productrettime_maxbound numeric(18,6),
+		s_wavg_productmobility_minbound numeric(18,6),
+		s_wavg_productmobility_maxbound numeric(18,6),
+		s_wavg_productintensity_minbound numeric(18,6),
+		s_wavg_productintensity_maxbound numeric(18,6),
+		s_wavg_productdeltappm_minbound numeric(18,6),
+		s_wavg_productdeltappm_maxbound numeric(18,6),
+		s_wavg_productfwhm_minbound numeric(18,6),
+		s_wavg_productfwhm_maxbound numeric(18,6),
+		s_wavg_productmhp_minbound  numeric(18,6),
+		s_wavg_productmhp_maxbound  numeric(18,6)
+	)
+
+	INSERT INTO s_fragmentweightedaverages_bounds (fragmentsequence)
+		SELECT fragmentsequence FROM s_fragmentweightedaverages
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_avg_productmz', 's_productgroup'
+	UPDATE s_productgroup_bounds
+	SET s_avg_productmz_minbound = m.value_min,
+		s_avg_productmz_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_avg_productrettime', 's_productgroup'
+	UPDATE s_productgroup_bounds
+	SET s_avg_productrettime_minbound = m.value_min,
+		s_avg_productrettime_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_avg_productmobility', 's_productgroup'
+	UPDATE s_productgroup_bounds
+	SET s_avg_productmobility_minbound = m.value_min,
+		s_avg_productmobility_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_avg_productintensity', 's_productgroup'
+	UPDATE s_productgroup_bounds
+	SET s_avg_productintensity_minbound = m.value_min,
+		s_avg_productintensity_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_avg_productdeltappm', 's_productgroup'
+	UPDATE s_productgroup_bounds
+	SET s_avg_productdeltappm_minbound = m.value_min,
+		s_avg_productdeltappm_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_avg_productfwhm', 's_productgroup'
+	UPDATE s_productgroup_bounds
+	SET s_avg_productfwhm_minbound = m.value_min,
+		s_avg_productfwhm_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_avg_productmhp', 's_productgroup'
+	UPDATE s_productgroup_bounds
+	SET s_avg_productmhp_minbound = m.value_min,
+		s_avg_productmhp_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_wavg_productmz', 's_fragmentweightedaverages'
+	UPDATE s_fragmentweightedaverages_bounds
+	SET s_wavg_productmz_minbound = m.value_min,
+		s_wavg_productmz_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_wavg_productrettime', 's_fragmentweightedaverages'
+	UPDATE s_fragmentweightedaverages_bounds
+	SET s_wavg_productrettime_minbound = m.value_min,
+		s_wavg_productrettime_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_wavg_productmobility', 's_fragmentweightedaverages'
+	UPDATE s_fragmentweightedaverages_bounds
+	SET s_wavg_productmobility_minbound = m.value_min,
+		s_wavg_productmobility_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_wavg_productintensity', 's_fragmentweightedaverages'
+	UPDATE s_fragmentweightedaverages_bounds
+	SET s_wavg_productintensity_minbound = m.value_min,
+		s_wavg_productintensity_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_wavg_productdeltappm', 's_fragmentweightedaverages'
+	UPDATE s_fragmentweightedaverages_bounds
+	SET s_wavg_productdeltappm_minbound = m.value_min,
+		s_wavg_productdeltappm_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_wavg_productfwhm', 's_fragmentweightedaverages'
+	UPDATE s_fragmentweightedaverages_bounds
+	SET s_wavg_productfwhm_minbound = m.value_min,
+		s_wavg_productfwhm_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	INSERT INTO @midpoint
+	EXEC midpoint 'fragmentsequence', 's_wavg_productmhp', 's_fragmentweightedaverages'
+	UPDATE s_fragmentweightedaverages_bounds
+	SET s_wavg_productmhp_minbound = m.value_min,
+		s_wavg_productmhp_maxbound = m.value_max
+	FROM @midpoint m
+	WHERE fragmentsequence = m.sequence
+	DELETE @midpoint
+
+	SET @errormessage = 's_fragmentweightedaverages_bounds table population ' + format(getdate() - @timestampstart, 'H:m:ss');
+	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
+
+	-- s_fragmentweightedaverages_bounds table population 0:8:01
+	
+	*/	
+
+
+
+
+
+
+
+	-- s_product_avgdelta
+	-- commented because populated.
 
 	IF OBJECT_ID (N's_product_avgdelta', N'U') IS NOT NULL BEGIN
 		DROP TABLE s_product_avgdelta
 	END
 
-	DROP INDEX s_product_avgdelta_measure_fragmentsequence_idx ON s_product_avgdelta;
+	--DROP INDEX s_product_avgdelta_measure_fragmentsequence_idx ON s_product_avgdelta;
 
 	CREATE TABLE s_product_avgdelta (
 		measure varchar(64),
@@ -1556,33 +2172,39 @@ END ELSE BEGIN
 		match bigint NOT NULL,
 		total bigint NOT NULL
 	)
+	DELETE FROM s_product_avgdelta
 
 	INSERT INTO s_product_avgdelta
 		SELECT 's_product_avgdeltamz_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_productgroup_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productmz
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productmz
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productmz - spg.s_avg_productmz)
+				WHERE ff1.productmz BETWEEN b.s_avg_productmz_minbound AND b.s_avg_productmz_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
+	--  time 01:22
 	SET @errormessage = 's_product_avgdelta table population for mz ' + format(getdate() - @timestampstart, 'H:m:ss');
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
-
+	
 	INSERT INTO s_product_avgdelta
-		select 's_product_avgdeltarettime_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_avgdelta_rettime_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_productgroup_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productrettime
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productrettime
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productrettime - spg.s_avg_productrettime)
+				WHERE ff1.productrettime BETWEEN b.s_avg_productrettime_minbound AND b.s_avg_productrettime_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1590,15 +2212,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_avgdelta
-		select 's_product_avgdelta_mobility_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_avgdelta_mobility_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_productgroup_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productmobility
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productmobility
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productmobility - spg.s_avg_productmobility)
+				WHERE ff1.productmobility BETWEEN b.s_avg_productmobility_minbound AND b.s_avg_productmobility_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1606,15 +2230,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_avgdelta
-		select 's_product_avgdelta_intensity_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_avgdelta_intensity_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_productgroup_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productintensity
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productintensity
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productintensity - spg.s_avg_productintensity)
+				WHERE ff1.productintensity BETWEEN b.s_avg_productintensity_minbound AND b.s_avg_productintensity_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1622,15 +2248,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_avgdelta
-		select 's_product_avgdelta_deltappm_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_avgdelta_deltappm_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_productgroup_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productdeltappm
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productdeltappm
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productdeltappm - spg.s_avg_productdeltappm)
+				WHERE ff1.productdeltappm BETWEEN b.s_avg_productdeltappm_minbound AND b.s_avg_productdeltappm_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1638,15 +2266,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_avgdelta
-		select 's_product_avgdelta_fwhm_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_avgdelta_fwhm_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_productgroup_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productfwhm
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productfwhm
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productfwhm - spg.s_avg_productfwhm)
+				WHERE ff1.productfwhm BETWEEN b.s_avg_productfwhm_minbound AND b.s_avg_productfwhm_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1654,15 +2284,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_avgdelta
-		select 's_product_avgdelta_mhp_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_avgdelta_mhp_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_productgroup_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productmhp
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productmhp
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productmhp - spg.s_avg_productmhp)
+				WHERE ff1.productmhp BETWEEN b.s_avg_productmhp_minbound AND b.s_avg_productmhp_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1670,6 +2302,12 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	CREATE UNIQUE CLUSTERED INDEX s_product_avgdelta_measure_fragmentsequence_idx ON s_product_avgdelta (measure, fragmentsequence);
+
+
+
+	-- s_product_wavgdelta
+	-- commented because populated.
+	select top 1 * from s_fragmentweightedaverages_bounds
 
 	IF OBJECT_ID (N's_product_wavgdelta', N'U') IS NOT NULL BEGIN
 		DROP TABLE s_product_wavgdelta
@@ -1685,15 +2323,17 @@ END ELSE BEGIN
 	)
 
 	INSERT INTO s_product_wavgdelta
-		SELECT 's_product_wavgdeltamz_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_wavgdelta_mz_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_fragmentweightedaverages_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productmz
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productmz
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productmz - spg.s_avg_productmz)
+				WHERE ff1.productmz BETWEEN b.s_wavg_productmz_minbound AND b.s_wavg_productmz_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1701,15 +2341,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_wavgdelta
-		select 's_product_wavgdeltarettime_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_wavgdelta_rettime_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_fragmentweightedaverages_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productrettime
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productrettime
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productrettime - spg.s_avg_productrettime)
+				WHERE ff1.productrettime BETWEEN b.s_wavg_productrettime_minbound AND b.s_wavg_productrettime_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1717,15 +2359,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_wavgdelta
-		select 's_product_wavgdelta_mobility_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_wavgdelta_mobility_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_fragmentweightedaverages_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productmobility
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productmobility
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productmobility - spg.s_avg_productmobility)
+				WHERE ff1.productmobility BETWEEN b.s_wavg_productmobility_minbound AND b.s_wavg_productmobility_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1733,15 +2377,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_wavgdelta
-		select 's_product_wavgdelta_intensity_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_wavgdelta_intensity_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_fragmentweightedaverages_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productintensity
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productintensity
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productintensity - spg.s_avg_productintensity)
+				WHERE ff1.productintensity BETWEEN b.s_wavg_productintensity_minbound AND b.s_wavg_productintensity_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1749,15 +2395,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_wavgdelta
-		select 's_product_wavgdelta_deltappm_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_wavgdelta_deltappm_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_fragmentweightedaverages_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productdeltappm
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productdeltappm
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productdeltappm - spg.s_avg_productdeltappm)
+				WHERE ff1.productdeltappm BETWEEN b.s_wavg_productdeltappm_minbound AND b.s_wavg_productdeltappm_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1765,15 +2413,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_wavgdelta
-		select 's_product_wavgdelta_fwhm_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_wavgdelta_fwhm_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_fragmentweightedaverages_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productfwhm
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productfwhm
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productfwhm - spg.s_avg_productfwhm)
+				WHERE ff1.productfwhm BETWEEN b.s_wavg_productfwhm_minbound AND b.s_wavg_productfwhm_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1781,15 +2431,17 @@ END ELSE BEGIN
 	RAISERROR (@errormessage, 0, 1) WITH NOWAIT;
 
 	INSERT INTO s_product_wavgdelta
-		select 's_product_wavgdelta_mhp_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
+		SELECT 's_product_wavgdelta_mhp_r', spg.fragmentsequence, matchcount.value, spg.fragmentfrequency
 		FROM s_productgroup spg
+		INNER JOIN s_fragmentweightedaverages_bounds b on spg.fragmentsequence = b.fragmentsequence
 		CROSS APPLY
 		(
-			SELECT count(*) value FROM (
-				SELECT TOP (spg.fragmentfrequency) ff1.productmhp
+			SELECT count(*) value 
+			FROM (
+				SELECT ff1.productmhp
 				FROM fragmentfile ff1 
-				WHERE ff1.fragmentsequence = spg.fragmentsequence
-				ORDER BY ABS(ff1.productmhp - spg.s_avg_productmhp)
+				WHERE ff1.productmhp BETWEEN b.s_wavg_productmhp_minbound AND b.s_wavg_productmhp_maxbound
+				AND ff1.fragmentsequence = spg.fragmentsequence
 			) total
 		) matchcount
 
@@ -1799,9 +2451,34 @@ END ELSE BEGIN
 	CREATE UNIQUE CLUSTERED INDEX s_product_wavgdelta_measure_fragmentsequence_idx ON s_product_wavgdelta (measure, fragmentsequence);
 
 
+	/*
+		s_product_avgdelta table population for mz 0:1:06
+		s_product_avgdelta table population for rettime 0:1:45
+		s_product_avgdelta table population for mobility 0:2:25
+		s_product_avgdelta table population for intensity 0:3:04
+		s_product_avgdelta table population for deltappm 0:3:44
+		s_product_avgdelta table population for fwhm 0:4:24
+		s_product_avgdelta table population for mhp 0:5:04
+		s_product_wavgdelta table population for mz 0:6:16
+		s_product_wavgdelta table population for rettime 0:6:55
+		s_product_wavgdelta table population for mobility 0:7:35
+		s_product_wavgdelta table population for intensity 0:8:14
+		s_product_wavgdelta table population for deltappm 0:8:53
+		s_product_wavgdelta table population for fwhm 0:9:33
+		s_product_wavgdelta table population for mhp 0:10:13
+*/
 
 
-	RETURN
+
+
+
+
+
+
+
+
+
+
 
 
 END
@@ -2250,7 +2927,7 @@ END ELSE BEGIN
 	select count(distinct peptidesequence) from fragmentfile										-- 119670
 	select count(distinct fragmentsequence) from fragmentfile										-- 612914
 	select count(*) FROM (select distinct peptidesequence, fragmentsequence from fragmentfile) a	-- 923599
-
+	 
 	--select count(*) FROM s_precursorgroup --119670
 	select top 10 * FROM s_precursorgroup
 	--select count(*) FROM s_productgroup --612914
@@ -2285,8 +2962,3 @@ SET IMPLICIT_TRANSACTIONS ON;
 */
 
 --select * from measurecontribution
-
-
-SELECT top 1 * from measurecontribution
-
-

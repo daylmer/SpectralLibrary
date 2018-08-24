@@ -1,7 +1,7 @@
-# Process command-line parameters
-# These params have global scope for all called functions
-#-fragmentFile "reduced.csv" -server "%server%" -port "%port%" -database "%database%" -security "SSPI"
+# Example usage of this file from the command line:
+# Powershell "%cwd%LoadFragmentFile.ps1" -fragmentFile "reduced.csv" -experiment "AB" -timepoint 3 -bioreplicate 2 -techreplicate 1 -sampleDate "10/04/2015 11:24" -server "ME" -port "1433" -database "protein" 
 
+# Command line arguments (All retain global scope)
 param (
 	[string][parameter(mandatory=$true)]$fragmentFile,
 	[string][parameter(mandatory=$true)]$server,
@@ -29,9 +29,10 @@ Set-StrictMode -Version Latest;
 # Include to build database connection string
 . ((Resolve-Path .\).Path + "\BuildConnectionString.ps1");
 
-
+# Build a connection string
 $connectionString = BuildConnectionString -server $server -port $port -database $database -integratedSecurity $integratedSecurity -username $username -password $password
 
+# Test if the fragment file exists
 if (test-path $fragmentFile) {
     $fileobj = (Get-ChildItem $fragmentFile);
 	$filename = $fileobj.name;
@@ -42,7 +43,7 @@ if (test-path $fragmentFile) {
 		$sampleDate = $currentDate;
 	}
 } else {
-	Write-Host "!Error Error 1-2-3";
+	Write-Host "Can not read supplied fragment file: $fragmentFile";
 }
 
 
@@ -54,9 +55,7 @@ $sourceContent = Get-Content ($fragmentFile);
 Write-Host ("Tokenising input file into rows");
 $sourceCollection = @($sourceContent.split([string[]]"`r`n", 'None'));
 
-#Data Source=myServerAddress;Initial Catalog=myDataBase;Integrated Security=SSPI;
-
-# Validate the headers
+# Validate the input file by confirming the header row is as expected
 Write-Host ("Validating file headers");
 $FragmentFileHeader = @{
 	"protein.key" = 0;
@@ -154,10 +153,9 @@ $FragmentFileHeader = @{
 }
 
 
-# Process the header line
+# Process the header line - display a progress bar on the console
 $header = $sourceCollection[0].Split(",");
 for ([int]$i=0; $i -lt $header.count; $i++) {
-	#Write-Host ("Validating headers on: $fragmentFile Validating column name $header[$i]");
 	[string]$status = "Validating column name " + $header[$i];
 	Write-Progress -Activity "Validating headers on: $fragmentFile" -status $status -percentComplete ($i / $header.Count * 100);
 	if ($i -ne $FragmentFileHeader[$header[$i]]) {
@@ -174,10 +172,6 @@ if ($connection.State -ne [Data.ConnectionState]::Open) {
     Write-Host ("Error: Connection to database is not open");
     break;
 }
-
-# Initialise SqlCommand object
-# $sqlCommand = New-Object System.Data.SqlClient.SqlCommand;
-# $sqlCommand.Connection = $connection;
 
 [string]$title = "";
 [string]$description = "";
